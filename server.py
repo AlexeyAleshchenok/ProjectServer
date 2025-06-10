@@ -7,8 +7,8 @@ import json
 from database import Database
 
 LOG_FILE = "server.log"
-CERTIFICATE = "server.crt"
-PRIVATE_KEY = "server.key"
+CERTIFICATE = "cert.pem"
+PRIVATE_KEY = "key.pem"
 IP = '0.0.0.0'
 PORT = 443
 QUEUE_SIZE = 10
