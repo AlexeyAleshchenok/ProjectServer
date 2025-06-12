@@ -30,6 +30,15 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
 def build_response(status_line: str, body: dict, type_header="response", content_type="application/json") -> bytes:
+    """
+    Constructs a basic HTTP-like response from provided status, headers, and body.
+
+    :param status_line: HTTP status (e.g., "HTTP/1.1 200 OK")
+    :param body: Dictionary to send as JSON body
+    :param type_header: Custom header to define type of message
+    :param content_type: MIME type of the content
+    :return: Byte-encoded HTTP response
+    """
     body_str = json.dumps(body)
     headers = (f"{status_line}\r\n"
                f"Content-Type: {content_type}\r\n"
@@ -40,6 +49,10 @@ def build_response(status_line: str, body: dict, type_header="response", content
 
 # GET
 def get_download(params, client_socket):
+    """
+    Handles a file download request.
+    Validates file path and sends the file in binary format if it exists.
+    """
     file_path = params.get("file")
     if not file_path:
         logging.warning("Download request missing file path.")
@@ -73,6 +86,10 @@ def get_download(params, client_socket):
 
 
 def get_gallery(params, client_socket):
+    """
+    Returns a list of images uploaded by a specific user.
+    Requires a valid user ID in the parameters.
+    """
     user_id = params.get("id")
     if not user_id:
         logging.warning("Gallery request missing user ID.")
@@ -91,6 +108,9 @@ def get_gallery(params, client_socket):
 
 
 def get_chats(params, client_socket):
+    """
+    Retrieves all chats the user is a member of.
+    """
     user_id = params.get("id")
     if not user_id:
         logging.warning("Chats request missing user ID.")
@@ -104,6 +124,9 @@ def get_chats(params, client_socket):
 
 
 def get_friends_list(params, client_socket):
+    """
+    Returns the user's friends list along with their online status.
+    """
     user_id = params.get("user_id")
     username = DATABASE.get_username(user_id)
     if not user_id:
@@ -121,6 +144,9 @@ def get_friends_list(params, client_socket):
 
 
 def get_incoming_requests(params, client_socket):
+    """
+    Returns a list of incoming friend requests for the user.
+    """
     user_id = params.get("user_id")
     username = DATABASE.get_username(user_id)
     if not user_id:
@@ -133,6 +159,9 @@ def get_incoming_requests(params, client_socket):
 
 
 def get_outgoing_requests(params, client_socket):
+    """
+    Returns a list of outgoing friend requests sent by the user.
+    """
     user_id = params.get("user_id")
     username = DATABASE.get_username(user_id)
     if not user_id:
@@ -145,6 +174,10 @@ def get_outgoing_requests(params, client_socket):
 
 
 def get_user_search(params, client_socket):
+    """
+    Searches for users by username substring.
+    Excludes the current user from results.
+    """
     username = params.get("username")
     searcher_id = params.get("searcher_id")
     if not username:
@@ -161,6 +194,10 @@ def get_user_search(params, client_socket):
 
 
 def get_exit(params, client_socket):
+    """
+    Handles user logout.
+    Updates online status and closes the connection.
+    """
     user_id = params.get("id")
     username = DATABASE.get_username(user_id)
 
@@ -183,6 +220,10 @@ def get_exit(params, client_socket):
 
 
 def get_interfaces(url, params, client_socket):
+    """
+    Routes GET requests to the appropriate handler based on the URL.
+    Logs each route call and returns a 'Not Found' if unmatched.
+    """
     if url == "/download":
         logging.info('GET /download request')
         get_download(params, client_socket)
@@ -214,6 +255,10 @@ def get_interfaces(url, params, client_socket):
 
 # POST
 def post_login(body, client_socket):
+    """
+    Handles user login.
+    Verifies credentials and sets user as online if successful.
+    """
     try:
         data = json.loads(body.decode())
         login = data.get("login")
@@ -241,6 +286,10 @@ def post_login(body, client_socket):
 
 
 def post_sign_in(body, client_socket):
+    """
+    Registers a new user.
+    Validates input and stores user credentials in the database.
+    """
     try:
         data = json.loads(body.decode())
         login = data.get("login")
@@ -268,6 +317,10 @@ def post_sign_in(body, client_socket):
 
 
 def post_upload(params, body, client_socket):
+    """
+    Handles file upload from the client.
+    Stores file in a user-specific directory and updates the database.
+    """
     file_name = params.get("filename")
     user_id = params.get("id")
 
@@ -298,6 +351,10 @@ def post_upload(params, body, client_socket):
 
 
 def post_create_chat(body, client_socket):
+    """
+    Creates a new group chat with specified members.
+    Stores chat in the database and assigns initial users.
+    """
     try:
         data = json.loads(body.decode())
         chat_name = data.get("chat_name")
@@ -324,6 +381,10 @@ def post_create_chat(body, client_socket):
 
 
 def post_send_message(body, client_socket):
+    """
+    Sends a message to a chat.
+    Forwards message to all online participants (excluding sender).
+    """
     try:
         data = json.loads(body.decode())
         chat_id = data.get("chat_id")
@@ -368,6 +429,9 @@ def post_send_message(body, client_socket):
 
 
 def post_add_to_chat(body, client_socket):
+    """
+    Adds a user to an existing chat.
+    """
     try:
         data = json.loads(body.decode())
         chat_id = data.get("chat_id")
@@ -392,6 +456,9 @@ def post_add_to_chat(body, client_socket):
 
 
 def post_add_friend(body, client_socket):
+    """
+    Sends a friend request to another user.
+    """
     try:
         data = json.loads(body.decode())
         user_id = data.get("user_id")
@@ -413,6 +480,9 @@ def post_add_friend(body, client_socket):
 
 
 def post_accept_friend(body, client_socket):
+    """
+    Accepts a pending friend request.
+    """
     try:
         data = json.loads(body.decode())
         user_id = data.get("user_id")
@@ -430,6 +500,9 @@ def post_accept_friend(body, client_socket):
 
 
 def post_decline_friend(body, client_socket):
+    """
+    Declines a pending friend request.
+    """
     try:
         data = json.loads(body.decode())
         user_id = data.get("user_id")
@@ -447,6 +520,9 @@ def post_decline_friend(body, client_socket):
 
 
 def post_remove_friend(body, client_socket):
+    """
+    Removes a friend from the user's friend list.
+    """
     try:
         data = json.loads(body.decode())
         user_id = data.get("user_id")
@@ -464,6 +540,10 @@ def post_remove_friend(body, client_socket):
 
 
 def post_interfaces(url, params, body, client_socket):
+    """
+    Routes POST requests to the appropriate handler based on the URL.
+    Logs each route call and returns a 'Not Found' if unmatched.
+    """
     if url == "/login":
         logging.info('POST /login request')
         post_login(body, client_socket)
@@ -500,6 +580,12 @@ def post_interfaces(url, params, body, client_socket):
 
 
 def url_params_parser(url_params):
+    """
+    Parses URL query parameters from a query string into a dictionary.
+
+    :param url_params: String like "id=123&file=name"
+    :return: Dictionary of parsed parameters
+    """
     params = {}
     for pair in url_params.split('&'):
         if '=' in pair:
@@ -509,6 +595,12 @@ def url_params_parser(url_params):
 
 
 def request_parser(client_request):
+    """
+    Parses a raw HTTP-like client request into method, URL, params, headers, and body.
+
+    :param client_request: Raw bytes received from client
+    :return: Tuple of (method, url, params_dict, headers, body) or None on error
+    """
     try:
         request_lines = client_request.split(b"\r\n")
         if len(request_lines) < 2:
@@ -540,6 +632,12 @@ def request_parser(client_request):
 
 
 def receive_data(client_socket):
+    """
+    Reads incoming data from the client socket in chunks.
+
+    :param client_socket: The socket object
+    :return: Byte string of the received data
+    """
     data = b''
     while True:
         chunk = client_socket.recv(1024)
@@ -552,6 +650,13 @@ def receive_data(client_socket):
 
 
 def handle_client(client_socket, client_address):
+    """
+    Handles a connected client. Parses requests, routes them,
+    and responds based on HTTP-like method (GET/POST).
+
+    :param client_socket: SSL-wrapped client connection
+    :param client_address: Tuple (IP, port) of client
+    """
     logging.info(f"New connection from {client_address}")
     while True:
         try:
@@ -586,6 +691,13 @@ def handle_client(client_socket, client_address):
 
 
 def main():
+    """
+    Entry point for the server:
+    - Initializes socket
+    - Wraps with SSL context
+    - Accepts incoming connections
+    - Launches new thread for each client
+    """
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         server_socket.bind((IP, PORT))

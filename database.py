@@ -4,14 +4,28 @@ import random
 
 
 class Database:
+    """
+    Handles all database operations for users, files, friends, and chats.
+    Uses SQLite as backend.
+    """
     def __init__(self, db_name="database.db"):
+        """
+        Initializes the database and creates tables if they do not exist.
+        """
         self.db_name = db_name
         self._create_tables()
 
     def _connect(self):
+        """
+        Returns a new SQLite connection with timeout set.
+        """
         return sqlite3.connect(self.db_name, timeout=5)
 
     def _create_tables(self):
+        """
+        Creates required database tables for users, files, friends, chats, and chat_members.
+        Executes only once on startup.
+        """
         conn = self._connect()
         cursor = conn.cursor()
 
@@ -53,6 +67,9 @@ class Database:
 
     # Registration
     def generate_id(self):
+        """
+        Generates a unique 6-digit user ID that doesn't yet exist in the database.
+        """
         while True:
             user_id = str(random.randint(100000, 999999))
             with self._connect() as conn:
@@ -62,6 +79,10 @@ class Database:
                     return user_id
 
     def register_user(self, login: str, username: str, password: str) -> tuple[bool, str | None]:
+        """
+        Registers a new user with hashed password.
+        Returns (success flag, user ID if successful).
+        """
         hashed_password = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
         try:
             with self._connect() as conn:
@@ -75,6 +96,10 @@ class Database:
             return False, None
 
     def authenticate_user(self, login: str, password: str) -> tuple[bool, str | None, str | None]:
+        """
+        Verifies login credentials.
+        Returns tuple (is_authenticated, user_id, username).
+        """
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT id, password, username FROM users WHERE login = ?", (login,))
@@ -87,12 +112,18 @@ class Database:
         return False, None, None
 
     def set_user_online_status(self, user_id: str, is_online: bool):
+        """
+        Updates user's online status (1 = online, 0 = offline).
+        """
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("UPDATE users SET is_online=? WHERE id=?", (int(is_online), user_id))
             conn.commit()
 
     def get_username(self, user_id: str):
+        """
+        Returns the username of a user by their ID.
+        """
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
@@ -100,6 +131,10 @@ class Database:
         return result[0] if result else None
 
     def search_users(self, username: str, user_id: str) -> list[dict]:
+        """
+        Searches users by partial username (excluding current user).
+        Returns list of dicts with id and username.
+        """
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("""SELECT id, username
@@ -110,12 +145,18 @@ class Database:
 
     # Files
     def add_file(self, owner_id: str, filename: str):
+        """
+        Adds a file entry to the database for the given user.
+        """
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("INSERT INTO files (owner_id, filename) VALUES (?, ?)", (owner_id, filename))
             conn.commit()
 
     def get_user_files(self, owner_id: str) -> list[str]:
+        """
+        Returns list of filenames uploaded by a specific user.
+        """
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT filename FROM files WHERE owner_id = ?", (owner_id,))
@@ -124,6 +165,10 @@ class Database:
 
     # Friends
     def add_friend_request(self, user_id: str, friend_id: str):
+        """
+        Sends a friend request (status='pending').
+        Uses INSERT OR IGNORE to prevent duplicates.
+        """
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("INSERT OR IGNORE INTO friends (user_id, friend_id, status) VALUES (?, ?, 'pending')",
@@ -131,6 +176,10 @@ class Database:
             conn.commit()
 
     def accept_friend_request(self, user_id: str, friend_id: str):
+        """
+        Accepts a pending friend request.
+        Updates status to 'accepted' in both directions.
+        """
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("UPDATE friends SET status = 'accepted' WHERE user_id = ? AND friend_id = ?",
@@ -140,6 +189,9 @@ class Database:
             conn.commit()
 
     def decline_friend_request(self, user_id: str, friend_id: str):
+        """
+        Removes a pending incoming request from friend_id.
+        """
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM friends WHERE user_id = ? AND friend_id = ? AND status = 'pending'",
@@ -147,6 +199,9 @@ class Database:
             conn.commit()
 
     def remove_friend(self, user_id: str, friend_id: str):
+        """
+        Removes a friendship in both directions.
+        """
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -155,6 +210,10 @@ class Database:
             conn.commit()
 
     def get_friends(self, user_id: str) -> list[str]:
+        """
+        Returns a list of user IDs that are friends with the given user.
+        Includes both directions.
+        """
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("""SELECT friend_id FROM friends WHERE user_id = ? AND status = 'accepted'
@@ -165,6 +224,9 @@ class Database:
         return friends
 
     def get_incoming_requests(self, user_id: str) -> list[dict]:
+        """
+        Returns a list of pending incoming friend requests (with usernames).
+        """
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("""SELECT users.id, users.username FROM friends
@@ -173,6 +235,9 @@ class Database:
             return [{"id": row[0], "username": row[1]} for row in cursor.fetchall()]
 
     def get_outgoing_requests(self, user_id: str) -> list[dict]:
+        """
+        Returns a list of pending outgoing friend requests (with usernames).
+        """
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("""SELECT users.id, users.username FROM friends
@@ -182,6 +247,10 @@ class Database:
 
     # Chats
     def create_chat(self, name: str, is_group: bool, members: list[str]) -> int:
+        """
+        Creates a new chat (group or private) with the provided members.
+        Returns the chat ID.
+        """
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("INSERT INTO chats (name, is_group) VALUES (?, ?)", (name, is_group))
@@ -191,13 +260,10 @@ class Database:
             conn.commit()
         return chat_id
 
-    def leave_chat(self, chat_id: int, user_id: str):
-        with self._connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?", (chat_id, user_id))
-            conn.commit()
-
     def get_user_chats(self, user_id: str) -> list[dict]:
+        """
+        Returns a list of chats (id + name) that the user is a member of.
+        """
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("""SELECT c.id, c.name
@@ -208,6 +274,9 @@ class Database:
         return chats
 
     def get_chat_members(self, chat_id: int) -> list[str]:
+        """
+        Returns a list of user IDs that are members of the given chat.
+        """
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT user_id FROM chat_members WHERE chat_id = ?", (chat_id,))
@@ -215,12 +284,20 @@ class Database:
         return members
 
     def is_chat_member(self, chat_id: int, user_id: str) -> bool:
+        """
+        Checks if a user is a member of a specific chat.
+        Returns True or False.
+        """
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?", (chat_id, user_id))
             return cursor.fetchone() is not None
 
     def add_user_to_chat(self, chat_id: int, user_id: str) -> bool:
+        """
+        Adds a user to an existing chat.
+        Returns True if successful, False on error.
+        """
         try:
             with self._connect() as conn:
                 cursor = conn.cursor()
